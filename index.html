@@ -62,8 +62,8 @@
 
     // --- RUNDOWN KEGIATAN LT-1 RESMI ---
     const RUNDOWN = [
-      { day: 'Jumat, 28 Agustus 2026', start: '12:30', end: '13:00', title: 'Registrasi Peserta', icon: '📝', desc: 'Pengecekan kelengkapan peserta dan administrasi tenda.' },
-      { day: 'Jumat, 28 Agustus 2026', start: '13:00', end: '14:00', title: 'Upacara Pembukaan LT-1', icon: '⚜️', desc: 'Penyematan tanda peserta oleh Mabigus.' },
+      { day: 'Jumat, 28 Agustus 2026', start: '12:30', end: '13:00', title: 'Registrasi Peserta', icon: '📝', desc: 'Pengecekan kelengkapan peserta dan tenda.' },
+      { day: 'Jumat, 28 Agustus 2026', start: '13:00', end: '14:00', title: 'Upacara Pembukaan LT-1', icon: '⚜️', desc: 'Penyematan tanda peserta resmi.' },
       { day: 'Jumat, 28 Agustus 2026', start: '14:00', end: '14:30', title: 'PBB Bertongkat (7 orang)', icon: '🎖️', desc: '1 Danton + 6 Pasukan bersaf.' },
       { day: 'Jumat, 28 Agustus 2026', start: '14:30', end: '15:00', title: 'Tekspram (Semaphore, Morse, Sandi)', icon: '📡', desc: 'Semaphore (2), Morse (2), Sandi (3).' },
       { day: 'Jumat, 28 Agustus 2026', start: '15:00', end: '15:30', title: 'Istirahat & Sholat Ashar', icon: '🕌', desc: 'Ibadah sholat Ashar di Buper.' },
@@ -84,6 +84,10 @@
       scores: JSON.parse(localStorage.getItem('LT1_SCORES_2026') || '{}'),
       isSaving: false
     };
+
+    function saveScores() {
+      localStorage.setItem('LT1_SCORES_2026', JSON.stringify(state.scores));
+    }
 
     function calculateTotal(cId, tId) {
       const raw = state.scores[cId + '_' + tId] || {};
@@ -147,6 +151,13 @@
       });
 
       return standings;
+    }
+
+    function updateClockOnly() {
+      const el = document.getElementById('digital-clock');
+      if (el) {
+        el.innerText = '⏱️ ' + new Date().toLocaleTimeString('id-ID') + ' WIB';
+      }
     }
 
     function render() {
@@ -242,10 +253,10 @@
               <div class="w-12 h-12 mx-auto rounded-full bg-amber-500/20 flex items-center justify-center text-2xl">🔒</div>
               <h3 class="text-base font-bold text-amber-300">Panel Dewan Juri Terkunci</h3>
               <p class="text-xs text-emerald-300/80">Masukkan kata sandi juri untuk mulai menginput nilai peserta LT-1.</p>
-              <div class="flex gap-2 justify-center max-w-xs mx-auto">
+              <form onsubmit="checkPass(event)" class="flex gap-2 justify-center max-w-xs mx-auto">
                 <input id="passInput" type="password" placeholder="Kata sandi..." class="px-3 py-1.5 bg-black border border-emerald-700 rounded-xl text-xs text-amber-200 text-center font-mono focus:outline-none" />
-                <button onclick="checkPass()" class="px-4 py-1.5 bg-amber-500 text-black font-black rounded-xl text-xs">Buka</button>
-              </div>
+                <button type="submit" class="px-4 py-1.5 bg-amber-500 text-black font-black rounded-xl text-xs">Buka</button>
+              </form>
             </div>
           `;
         } else {
@@ -283,7 +294,7 @@
                       <div class="bg-[#050e0a] border border-emerald-900 p-3 rounded-xl space-y-2">
                         <div class="flex justify-between items-center">
                           <span class="text-xs font-bold text-white">${team.avatar} Regu ${team.name} (${team.gender})</span>
-                          <span class="font-mono text-amber-400 font-bold text-xs">Total: ${total}</span>
+                          <span class="font-mono text-amber-400 font-bold text-xs" id="total-${cur.id}-${team.id}">Total: ${total}</span>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           ${cur.criteria.map(crit => `
@@ -444,7 +455,7 @@
             </div>
 
             <div class="flex items-center gap-2">
-              <div class="bg-[#040c08] border border-amber-500/50 px-3 py-1 rounded-xl text-amber-300 font-mono text-xs sm:text-sm font-bold">
+              <div id="digital-clock" class="bg-[#040c08] border border-amber-500/50 px-3 py-1 rounded-xl text-amber-300 font-mono text-xs sm:text-sm font-bold">
                 ⏱️ ${timeStr}
               </div>
               ${state.isAdmin ? `
@@ -503,8 +514,11 @@
       `;
     }
 
-    function checkPass() {
-      const val = document.getElementById('passInput').value.trim().toUpperCase();
+    function checkPass(e) {
+      if (e) e.preventDefault();
+      const inputEl = document.getElementById('passInput');
+      if (!inputEl) return;
+      const val = inputEl.value.trim().toUpperCase();
       if (val === 'SEKOLAHFAVORIT') {
         state.isAdmin = true;
         render();
@@ -517,13 +531,17 @@
       let val = value === '' ? '' : Math.max(0, Math.min(maxVal, parseFloat(value) || 0));
       if (!state.scores[cId + '_' + tId]) state.scores[cId + '_' + tId] = {};
       state.scores[cId + '_' + tId][critKey] = val;
-      localStorage.setItem('LT1_SCORES_2026', JSON.stringify(state.scores));
+      saveScores();
+      
+      const totalEl = document.getElementById('total-' + cId + '-' + tId);
+      if (totalEl) {
+        totalEl.innerText = 'Total: ' + calculateTotal(cId, tId);
+      }
     }
 
     async function handleSaveToCloud() {
       state.isSaving = true;
       render();
-      localStorage.setItem('LT1_SCORES_2026', JSON.stringify(state.scores));
       const standings = getStandings();
       
       if (SCRIPT_URL && SCRIPT_URL.startsWith('http') && !SCRIPT_URL.includes('sample')) {
@@ -549,24 +567,8 @@
       render();
     }
 
-    // Ambil Data dari Google Sheet jika sudah ada
-    async function loadInitialData() {
-      if (SCRIPT_URL && SCRIPT_URL.startsWith('http') && !SCRIPT_URL.includes('sample')) {
-        try {
-          const res = await fetch(SCRIPT_URL);
-          const data = await res.json();
-          if (data && Object.keys(data).length > 0) {
-            state.scores = data;
-            localStorage.setItem('LT1_SCORES_2026', JSON.stringify(data));
-            render();
-          }
-        } catch(e) {}
-      }
-    }
-
     render();
-    setInterval(render, 1000);
-    loadInitialData();
+    setInterval(updateClockOnly, 1000);
   </script>
 </body>
 </html>
